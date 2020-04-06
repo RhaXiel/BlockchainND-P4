@@ -23,9 +23,9 @@ var Config = async function(accounts) {
     let owner = accounts[0];
     let firstAirline = accounts[1];
 
+    //let flightSuretyData = await FlightSuretyData.new({from: owner, value: 10000000000000000000}); //Deploy with funding
     let flightSuretyData = await FlightSuretyData.new();
     let flightSuretyApp = await FlightSuretyApp.new();
-
     
     return {
         owner: owner,
@@ -33,7 +33,9 @@ var Config = async function(accounts) {
         weiMultiple: (new BigNumber(10)).pow(18),
         testAddresses: testAddresses,
         flightSuretyData: flightSuretyData,
-        flightSuretyApp: flightSuretyApp
+        flightSuretyApp: flightSuretyApp,
+        getBalance: async function(address){return await web3.eth.getBalance(address)},
+        web3: web3
     }
 }
 
