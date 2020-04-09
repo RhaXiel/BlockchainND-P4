@@ -22,10 +22,10 @@ var Config = async function(accounts) {
 
     let owner = accounts[0];
     let firstAirline = accounts[1];
+    const funding = web3.utils.toWei("10", "ether");
 
-    //let flightSuretyData = await FlightSuretyData.new({from: owner, value: 10000000000000000000}); //Deploy with funding
-    let flightSuretyData = await FlightSuretyData.new();
-    let flightSuretyApp = await FlightSuretyApp.new();
+    let flightSuretyData = await FlightSuretyData.new(firstAirline, {from: owner, value: funding});
+    let flightSuretyApp = await FlightSuretyApp.new(flightSuretyData.address);
     
     return {
         owner: owner,
@@ -34,8 +34,7 @@ var Config = async function(accounts) {
         testAddresses: testAddresses,
         flightSuretyData: flightSuretyData,
         flightSuretyApp: flightSuretyApp,
-        getBalance: async function(address){return await web3.eth.getBalance(address)},
-        web3: web3
+        minimumFunding: funding,
     }
 }
 

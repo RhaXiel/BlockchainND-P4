@@ -12,18 +12,21 @@ contract FlightSuretyData {
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
 
-    uint public airlinesCount = 0;
-    uint public flightCount = 0;
-    uint public insuranceCount = 0;
+    uint private airlinesCount = 0;
+    uint private flightCount = 0;
+    uint private insuranceCount = 0;
 
-    mapping(address => bool) public authorizedCallers;
+    mapping(address => bool) private authorizedCallers;
 
     //Airlines
     struct Airline {
         uint id;
         bool isVoter;
+        bool approved;
+        uint minVotes;
     }
-    mapping(address => Airline) public airlines;
+
+    mapping(address => Airline) private airlines;
 
     /* enum FlightState{AvailableForinsurance, NotAvailableForInsurance}
     struct Flight {
@@ -47,15 +50,25 @@ contract FlightSuretyData {
         address insuree;
     }
 
-    mapping(uint => Insurance) public insurances;
+    mapping(address => uint) votes;
+
+    mapping(address => address[]) approvals;
+
+    /* struct Votes{
+        uint voteNumber;
+        address airline;
+        address voter;
+    }
+
+    address[] voters */
+
+    uint maxAutoAprovedAirlines = 4;
+
+    mapping(uint => Insurance) private insurances;
     mapping(address => uint[]) private passengerInsurances;
     mapping(uint => uint[]) private flightInsurances;
 
-    mapping(address => uint) public insuranceCredits;
-
-
-    uint256 public airlineRegistrationFee = 10 ether;
-    uint256 public insuranceCap = 1 ether;
+    mapping(address => uint) private insuranceCredits;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -83,6 +96,7 @@ contract FlightSuretyData {
     */
     constructor
                                 (
+                                    address firstAirline
                                 )
                                 public
                                 payable
@@ -92,7 +106,7 @@ contract FlightSuretyData {
         authorizedCallers[contractOwner] = true;
 
         airlinesCount = airlinesCount.add(1);
-        airlines[contractOwner] = Airline({id: airlinesCount, isVoter: true});
+        airlines[firstAirline] = Airline({id: airlinesCount, isVoter: true, approved: true, minVotes: 0});
         address(this).transfer(msg.value);
     }
 
@@ -124,59 +138,15 @@ contract FlightSuretyData {
     }
 
     /**
-    * @dev Modifier that requires the caller to be a contract administrator
+    * @dev Modifier that requires the caller to be authorized
     */
-    modifier requireAdmin()
+    modifier requireAuthorizedCaller()
     {
-        require(authorizedCallers[msg.sender] == true, "Caller is not an admin");
-        _;
-    }
-
-    /**
-    * @dev Modifier that requires the caller to be the same as sender
-    */
-    modifier requireAuthorizedCaller(address caller)
-    {
-        require(msg.sender == caller, "Current caller cannot call this operation");
-        _;
-    }
-
-    /**
-    * @dev Modifier that requires the airline to be registered
-    */
-    modifier requireAirlineIsRegistered(address airline) //APP
-    {
-        require(airlines[airline].id > 0, "Airline is not registered");
-        _;
-    }
-
-    /**
-    * @dev Modifier that requires the airline to not be registered
-    */
-    modifier requireAirlineNotRegistered(address airline)
-    {
-        require(airlines[airline].id == 0, "The airline is already registered");
-        _;
-    }
-
-    /**
-    * @dev Modifier that requires the airline to fulfill a minimun funding
-    */
-    modifier requireMinimumFunding(uint funding){
-        require(funding >= airlineRegistrationFee, "Funding requirement not met");
+        require(authorizedCallers[msg.sender] == true, "Caller is not authorized");
         _;
     }
 
     //APP
-    /**
-    * @dev Modifier that requires the airline to be a voter
-    */
-    modifier requireAirlineIsVoter(address airline)
-    {
-        require(airlines[airline].isVoter == true, "Airline is not allowed to vote");
-        _;
-    }
-
     /**
     * @dev Modifier that requires the flight to be active
     */
@@ -204,14 +174,7 @@ contract FlightSuretyData {
         _;
     }
 
-    /**
-    * @dev Modifier that requires the airline to be a voter
-    */
-    modifier requireMinimunInsurance()
-    {
-        require(msg.value > 0, "Insurance value cannot be 0");
-        _;
-    }
+    
 
     modifier requireContractHasEnoughFunds(address insuree)
     {
@@ -263,48 +226,97 @@ contract FlightSuretyData {
         operational = mode;
     }
 
-    function getAirlineRegistrationFee()
-                                        public
-                                        view
-                                        returns(uint256)
-    {
-        return airlineRegistrationFee;
-    }
-
-    function setAirlineRegistrationFee(uint256 fee)
+    function authorizeCaller(address _contract)
                             external
                             requireIsOperational
                             requireContractOwner
-                            //requireConsensus //Require for airlines to have consensus on changing funding
     {
-        airlineRegistrationFee = fee;
+        authorizedCallers[_contract] = true;
     }
 
-    function setInsuranceCap(uint256 cap)
-                            external
-                            requireIsOperational
-                            requireContractOwner
-                            //requireConsensus //Require for airlines to have consensus on changing funding
+    function deAuthorizeCaller(address _contract)
+                                external
+                                requireIsOperational
+                                requireContractOwner
     {
-        insuranceCap = cap;
+        delete authorizedCallers[_contract];
     }
 
-    function authorizeCaller(address user)
-                            external
-                            requireIsOperational
-                            requireContractOwner
-                            //requireConsensus //Require for airlines to have consensus on changing funding
-    {
-        authorizedCallers[user] = true;
-    }
-
-    function isAirline(address airline)
+    function isAirlineIsExist(address airline)
                             external
                             view
                             returns(bool)
     {
         bool _isAirline = (airlines[airline].id > 0);
         return _isAirline;
+    }
+
+    function isAirlineIsVoter(address airline)
+                            external
+                            view
+                            returns(bool)
+    {
+        return airlines[airline].isVoter;
+    }
+
+    function isAirlineIsApproved(address airline)
+                            external
+                            view
+                            returns(bool)
+    {
+        return airlines[airline].approved;
+    }
+
+    function getAirlineMinVotes(address airline)
+                            external
+                            view
+                            returns(uint)
+    {
+        return airlines[airline].minVotes;
+    }
+
+    function getAirlineVotes(address airline)
+                            external
+                            view
+                            returns(uint)
+    {
+        return votes[airline];
+    }
+
+    function getMaxAutoAprovedAirlines()
+                            external
+                            view
+                            returns(uint)
+    {
+        return maxAutoAprovedAirlines;
+    }
+
+    function setMaxAutoAprovedAirlines(uint maxAutoAprovedAirlinesValue)
+                                external
+                                requireIsOperational
+                                requireContractOwner
+    {
+        maxAutoAprovedAirlines = maxAutoAprovedAirlinesValue;
+    }
+
+    function getAirlinesCount() external view returns(uint)
+    {
+        return airlinesCount;
+    }
+
+    function getFlightCount() external view returns(uint)
+    {
+        return flightCount;
+    }
+
+    function getInsuranceCount() external view returns(uint)
+    {
+        return insuranceCount;
+    }
+
+    function getApprovals(address airline) external view returns(address[])
+    {
+        return approvals[airline];
     }
 
     /********************************************************************************************/
@@ -318,18 +330,50 @@ contract FlightSuretyData {
     */
     function registerAirline
                             (
-                                address airline
+                                address airline,
+                                address registeringAirline
                             )
                             external
-                            payable
                             requireIsOperational
-                            requireAuthorizedCaller(msg.sender)
-                            //requireAirlineIsRegistered(msg.sender)
-                            requireAirlineNotRegistered(airline)
+                            requireAuthorizedCaller
     {
         airlinesCount = airlinesCount.add(1);
-        airlines[airline] = Airline({id: airlinesCount, isVoter: false});
+        airlines[airline] = Airline({
+            id: airlinesCount,
+            isVoter: false,
+            approved: airlinesCount <= maxAutoAprovedAirlines,
+            minVotes: airlinesCount.add(1).div(2)
+            });
+        votes[airline] = votes[airline].add(1);
+        approvals[airline].push(registeringAirline);
         //Emit RegisteredAirline
+    }
+
+    function registerVote(
+                            address airline,
+                            address registeringAirline
+                         )
+                         external
+                         requireIsOperational
+                         requireAuthorizedCaller
+    {
+        votes[airline] = votes[airline].add(1);
+        approvals[airline].push(registeringAirline);
+        //Emit registeredvote
+    }
+
+    function setFunded(address airline, bool isVoter) external
+                                    requireIsOperational
+                                    requireAuthorizedCaller
+    {
+        airlines[airline].isVoter = isVoter;
+    }
+
+    function setApproved(address airline, bool approved) external
+                                    requireIsOperational
+                                    requireAuthorizedCaller
+    {
+        airlines[airline].approved = approved;
     }
 
 
@@ -340,21 +384,15 @@ contract FlightSuretyData {
     function buy
                             (
                                 uint flightId,
-                                address insuree
+                                address insuree,
+                                uint amountPaid
                             )
                             external
                             payable
                             requireIsOperational
-                            //requireActiveFlight(flightId)
+                            requireAuthorizedCaller
     {
         insuranceCount = insuranceCount.add(1);
-
-        uint amountPaid;
-        if (msg.value >= insuranceCap) {
-            amountPaid = insuranceCap;
-        } else {
-            amountPaid = msg.value;
-        }
 
         insurances[insuranceCount] = Insurance(
             {
@@ -368,10 +406,7 @@ contract FlightSuretyData {
         flightInsurances[flightId].push(insuranceCount);
         passengerInsurances[insuree].push(insuranceCount);
         //emit BoughtInsurance(insurancesById[insuranceCount].id);
-
-        uint amountToReturn = msg.value.sub(amountPaid);
         address(this).transfer(amountPaid);
-        address(msg.sender).transfer(amountToReturn);
     }
 
     /**
@@ -383,7 +418,7 @@ contract FlightSuretyData {
                                 )
                                 external
                                 requireIsOperational
-                                requireAuthorizedCaller(msg.sender)
+                                requireAuthorizedCaller
                                 requireValidInsurance(insuranceId)
                                 requireActiveInsurance(insuranceId)
                                 //requireDelayedFlight(insuranceId)
@@ -402,15 +437,17 @@ contract FlightSuretyData {
     */
     function pay
                             (
+                                address insuree
                             )
                             external
-                            requireAuthorizedCaller(msg.sender)
-                            requireCreditedInsurance(msg.sender)
-                            requireContractHasEnoughFunds(msg.sender)
+                            requireIsOperational
+                            requireAuthorizedCaller
+                            requireCreditedInsurance(insuree)
+                            requireContractHasEnoughFunds(insuree)
     {
-        uint credit = insuranceCredits[msg.sender];
-        insuranceCredits[msg.sender] = 0;
-        msg.sender.transfer(credit);
+        uint credit = insuranceCredits[insuree];
+        insuranceCredits[insuree] = 0;
+        insuree.transfer(credit);
         //emit Payed
     }
 
@@ -424,11 +461,12 @@ contract FlightSuretyData {
                             )
                             public
                             payable
-                            //requireAirlineIsRegistered(msg.sender)
-                            requireMinimumFunding(msg.value)
+                            requireIsOperational
+                            //requireAirlineIsRegistered(airline)
     {
-        address(this).transfer(msg.value);
-        //emit AddedFunds(address(this), msg.value);
+        /* airlines[msg.sender].isVoter = true;
+        address(this).transfer(msg.value); */
+        emit AddedFunds(address(this), msg.value);
     }
 
     function getFlightKey

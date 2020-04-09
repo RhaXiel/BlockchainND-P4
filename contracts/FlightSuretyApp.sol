@@ -12,6 +12,8 @@ import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 contract FlightSuretyApp {
     using SafeMath for uint256; // Allow SafeMath functions to be called for all uint256 types (similar to "prototype" in Javascript)
 
+    FlightSuretyData dataContract;
+
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
@@ -28,8 +30,6 @@ contract FlightSuretyApp {
 
     bool private operational = true;
 
-    uint8 private constant REGISTERED_AIRLINES_COUNT_FOR_CONSENSUS_MODE = 4;
-
     address[] voters = new address[](0);
 
     //Events
@@ -44,7 +44,12 @@ contract FlightSuretyApp {
         uint256 updatedTimestamp;
         address airline;
     }
+
     mapping(bytes32 => Flight) private flights;
+
+
+    uint256 public airlineRegistrationFee = 10 ether;
+    uint256 public insuranceCap = 1 ether;
 
  
     /********************************************************************************************/
@@ -75,6 +80,59 @@ contract FlightSuretyApp {
         _;
     }
 
+    /**
+    * @dev Modifier that requires the airline to fulfill a minimun funding
+    */
+    modifier requireMinimumFunding(){
+        require(msg.value >= airlineRegistrationFee, "Funding requirement not met");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the airline to be a voter
+    */
+    modifier requireMinimunInsurance()
+    {
+        require(msg.value > 0, "Insurance value cannot be 0");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the airline to be registered
+    */
+    modifier requireAirlineIsApproved(address airline) //APP
+    {
+        require(dataContract.isAirlineIsApproved(airline) == true, "Airline is not registered");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the airline to not be registered
+    */
+    modifier requireAirlineNotApproved(address airline)
+    {
+        require(dataContract.isAirlineIsApproved(airline) == false, "The airline is already registered");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the airline to not be registered
+    */
+    modifier requireAirlineNotFunded(address airline)
+    {
+        require(dataContract.isAirlineIsVoter(airline) == false, "The airline is already funded");
+        _;
+    }
+
+    /**
+    * @dev Modifier that requires the airline to be a voter
+    */
+    modifier requireAirlineIsVoter(address airline)
+    {
+        require(dataContract.isAirlineIsVoter(airline) == true, "Airline is not allowed to vote");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -85,12 +143,17 @@ contract FlightSuretyApp {
     */
     constructor
                                 (
+                                    address dataContractAddress
                                 )
                                 public
+                                payable
     {
         contractOwner = msg.sender;
         authorizedCallers[address(this)] = true;
         authorizedCallers[contractOwner] = true;
+
+        dataContract = FlightSuretyData(dataContractAddress);
+        //dataContract.registerAirline.value(msg.value)(firstAirline);
 
         /* airlinescount = airlinesCount.add(1);
         arilines[msg.sender] = Airline({id: airlinesCount, isVoter: true}); */
@@ -107,6 +170,37 @@ contract FlightSuretyApp {
         return operationalContract;  // Modify to call data contract's status
     }
 
+    function getInsuranceCap()
+                            public
+                            returns(uint256)
+    {
+        return insuranceCap;
+    }
+
+    function setInsuranceCap(uint256 cap)
+                            external
+                            requireIsOperational
+                            requireContractOwner
+    {
+        insuranceCap = cap;
+    }
+
+    function getAirlineRegistrationFee()
+                                        public
+                                        view
+                                        returns(uint256)
+    {
+        return airlineRegistrationFee;
+    }
+
+    function setAirlineRegistrationFee(uint256 fee)
+                            external
+                            requireIsOperational
+                            requireContractOwner
+    {
+        airlineRegistrationFee = fee;
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -118,12 +212,41 @@ contract FlightSuretyApp {
     */
     function registerAirline
                             (
+                                address airline
                             )
                             external
-                            pure
-                            returns(bool success, uint256 votes)
+                            requireIsOperational
+                            requireAirlineIsApproved(msg.sender)
+                            requireAirlineIsVoter(msg.sender)
+                            requireAirlineNotApproved(airline)
+                            //returns(bool success, uint256 votes)
     {
-        return (success, 0);
+        uint maxAutoApprovedAirlines = dataContract.getMaxAutoAprovedAirlines();
+        uint minVotes = dataContract.getAirlineMinVotes(airline);
+        uint votes = dataContract.getAirlineVotes(airline);
+
+        uint airlinesCount = dataContract.getAirlinesCount();
+        //uint flightCount = dataContract.getFlightCount();
+        //uint insuranceCount = dataContract.getInsuranceCount();
+
+        if(airlinesCount < maxAutoApprovedAirlines){ //Consensus not required
+            dataContract.registerAirline(airline, msg.sender);
+            //Emit approved
+        } else { //Requires consensus
+            if(votes < minVotes) { //Not approved
+                address[] memory approvals = dataContract.getApprovals(airline);
+                for(uint i = 0; i < approvals.length; i++) {
+                    require(approvals[i] != msg.sender, "Airline already voted for approval");
+                }
+                dataContract.registerVote(airline, msg.sender);
+                //emit AirlineRegistered(_address);
+            }
+            else { //Is approved
+                dataContract.setApproved(airline, true);
+                //emit Votes Registered(_address);
+            }
+        }
+        //return (success, 0);
     }
 
 
@@ -177,6 +300,38 @@ contract FlightSuretyApp {
 
         emit OracleRequest(index, airline, flight, timestamp);
     }
+
+    function creditInsurance(uint insuranceId) external requireIsOperational
+    {
+        dataContract.creditInsurees(insuranceId);
+    }
+
+    function buyInsurance(uint flightId, address insuree) external requireIsOperational requireMinimunInsurance payable
+    {
+        uint amountPaid;
+        if (msg.value >= insuranceCap) {
+            amountPaid = insuranceCap;
+        } else {
+            amountPaid = msg.value;
+        }
+
+        uint amountToReturn = msg.value.sub(amountPaid);
+
+        dataContract.buy(flightId, insuree, amountPaid);
+        address(msg.sender).transfer(amountToReturn);
+    }
+
+    function fundAirline()  external
+                            payable
+                            requireIsOperational
+                            requireMinimumFunding
+                            requireAirlineNotFunded(msg.sender)
+    {
+        address(dataContract).transfer(msg.value);
+        dataContract.setFunded(msg.sender, true);
+        //emit RegistrationFeePaid(msg.sender, registrationFee);
+    }
+
 
 
 // region ORACLE MANAGEMENT
@@ -351,3 +506,56 @@ contract FlightSuretyApp {
 // endregion
 
 }
+
+
+contract FlightSuretyData {
+    //Utility functions
+    function isOperational() public view returns(bool);
+
+    function isAirlineIsExist(address airline) public view returns(bool);
+    function isAirlineIsVoter(address airline) public view returns(bool);
+    function isAirlineIsApproved(address airline) public view returns(bool);
+    function getAirlineMinVotes(address airline) public view returns(uint);
+
+    function getAirlineVotes(address airline) public view returns(uint);
+    function getAirlinesCount() public view returns(uint);
+    function getFlightCount() public view returns(uint);
+    function getInsuranceCount() public view returns(uint);
+
+    function getMaxAutoAprovedAirlines() public view returns(uint);
+
+    //Contract functions
+    function registerAirline(address airline, address registeredAirline) public payable;
+    function registerVote(address airline, address registeringAirline) public;
+    function getApprovals(address airline) public returns(address[]);
+    function setApproved(address airline, bool approved) public;
+
+    function setFunded(address airline, bool isVoter) public;
+    function creditInsurees(uint insuranceId) public;
+    function buy(uint flightId, address insuree, uint amountPaid) public payable;
+    function fund() public payable;
+    function () external payable;
+}
+
+
+
+/*
+function setIsAuthorizedCaller(address _address, bool isAuthorized) public;
+    function createAirline(address airlineAddress, bool isVoter) public;
+    function addFunds(uint _funds) public;
+    function getAirlinesCount() public view returns (uint);
+    function createInsurance(uint _flightId, uint _amountPaid, address _owner) public;
+    function getInsurance(uint _id) public view returns (uint id, uint flightId, string memory state, uint amountPaid, address owner);
+    function createFlight(string _code, uint _departureTimestamp, address _airlineAddress) public;
+    function getFlight(uint _id) public view returns (uint id, string flight, bytes32 key, address airlineAddress, string memory state, uint departureTimestamp, uint8 departureStatusCode, uint updated);
+    function getInsurancesByFlight(uint _flightId) public view returns (uint[]);
+    function creditInsurance(uint _id, uint _amountToCredit) public;
+    function getAirline(address _address) public view returns (address, uint, bool);
+    function setAirlineIsVoter(address _address, bool isVoter) public;
+    function setDepartureStatusCode(uint _flightId, uint8 _statusCode) public;
+    function setUnavailableForInsurance(uint flightId) public;
+    function getFlightIdByKey(bytes32 key) public view returns (uint);
+    function createFlightKey(address _airlineAddress, string memory flightCode, uint timestamp) public returns (bytes32);
+    function withdrawCreditedAmount(uint _amountToWithdraw, address _address) public payable;
+    function getCreditedAmount(address _address) public view returns (uint);
+    */

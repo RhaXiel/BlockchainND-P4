@@ -5,9 +5,14 @@ const fs = require('fs');
 module.exports = function(deployer) {
 
     let firstAirline = '0xf17f52151EbEF6C7334FAD080c5704D77216b732';
-    deployer.deploy(FlightSuretyData)
+    deployer.deploy(FlightSuretyData, firstAirline, {value: web3.utils.toWei("10", "ether")})
     .then(() => {
-        return deployer.deploy(FlightSuretyApp)
+        return deployer.deploy(FlightSuretyApp, FlightSuretyData.address)
+            .then(deployer => {
+            return FlightSuretyData.deployed();
+            }).then(dataInstance => {
+                return dataInstance.authorizeCaller(FlightSuretyApp.address);
+            })
                 .then(() => {
                     let config = {
                         localhost: {
