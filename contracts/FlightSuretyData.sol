@@ -466,7 +466,8 @@ contract FlightSuretyData {
     {
         /* airlines[msg.sender].isVoter = true;
         address(this).transfer(msg.value); */
-        emit AddedFunds(address(this), msg.value);
+        //emit AddedFunds(airline, fundAmount);
+        emit AddedFunds(address(this), 1);
     }
 
     function getFlightKey
@@ -490,7 +491,8 @@ contract FlightSuretyData {
                             external
                             payable
     {
-        fund();
+        //fund();
+        emit AddedFunds(address(this), 1);
     }
 
 

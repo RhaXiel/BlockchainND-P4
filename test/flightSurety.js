@@ -152,7 +152,7 @@ contract('Flight Surety Tests', async (accounts) => {
     assert.equal(newBalance, (Number(balance) + Number(funding)).toString(), "Funding was unsuccesful"); 
     assert.equal(isVoter, true, "Airline is not voter");    
   });
-
+ 
   async function fund(address, _funding){
     await config.flightSuretyApp.fundAirline({from: address, value: _funding});    
     return await config.flightSuretyData.isAirlineIsVoter.call(address);
@@ -163,33 +163,38 @@ contract('Flight Surety Tests', async (accounts) => {
         const addressNoConsensus1 = config.testAddresses[0];
         const addressNoConsensus3 = config.testAddresses[2];
 
+        const contractBalance = await web3.eth.getBalance(config.flightSuretyData.address);
+
         const funding = web3.utils.toWei("10", "ether");
 
         let voters =[];
 
         try {
             voters.push(await fund(addressNoConsensus1, funding));
-        } catch (e) {
-            console.log("couldn't fund airline", e);
-        }    
-        assert.equal(voters[0], true, "Airline 1 is not funded");
-
-        try {
             voters.push(await fund(addressNoConsensus3, funding));
         } catch (e) {
             console.log("couldn't fund airline", e);
         }    
+
+        const newContractBalance = await web3.eth.getBalance(config.flightSuretyData.address);
+
+        assert.equal(voters[0], true, "Airline 1 is not funded");
         assert.equal(voters[1], true, "Airline 3 is not funded");
+        assert.equal(newContractBalance, (Number(contractBalance) + (Number(funding) * 2)).toString(), "Funding was unsuccesful"); 
   });
 
   it('(airline) Registration of fifth and subsequent airlines requires multi-party consensus of 50% of registered airlines', async () => {
       //Airline created with contract count as the fourth one.
       const addressConsesusNeeded = config.testAddresses[3];
 
+      const addressNoConsensus1 = config.testAddresses[0];
+      const addressNoConsensus2 = config.testAddresses[1];
+      const addressNoConsensus3 = config.testAddresses[2];
+
       async function isApproved(airline){
         const isRegistered = await config.flightSuretyData.isAirlineIsExist.call(airline);
         const isAirlineIsApproved = await config.flightSuretyData.isAirlineIsApproved.call(airline);
-          return (isRegistered && isAirlineIsApproved);
+        return (isRegistered && isAirlineIsApproved);
       }
 
       let approved;
@@ -204,10 +209,19 @@ contract('Flight Surety Tests', async (accounts) => {
     assert.equal(approved, false, "Airline needs consensus to be aproved");
 
     //Consensus
-
+      try {
+        //Consensus needed
+        await config.flightSuretyApp.registerAirline(addressConsesusNeeded, {from: addressNoConsensus1});
+        await config.flightSuretyApp.registerAirline(addressConsesusNeeded, {from: addressNoConsensus2});
+        approved  = await isApproved(addressConsesusNeeded);
+      } catch (err) {
+          console.log(err)
+      }
+    assert.equal(approved, true, "Consensus not achieved.");
   });
 
   it('(passenger) may pay up to 1 ether for purchasing flight insurance', async () => {
+    
     assert.equal(true,true, "true");
   });
 

@@ -51,6 +51,8 @@ contract FlightSuretyApp {
     uint256 public airlineRegistrationFee = 10 ether;
     uint256 public insuranceCap = 1 ether;
 
+    address _dataContractAddress;
+
  
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -153,6 +155,7 @@ contract FlightSuretyApp {
         authorizedCallers[contractOwner] = true;
 
         dataContract = FlightSuretyData(dataContractAddress);
+        _dataContractAddress = dataContractAddress;
         //dataContract.registerAirline.value(msg.value)(firstAirline);
 
         /* airlinescount = airlinesCount.add(1);
@@ -229,21 +232,24 @@ contract FlightSuretyApp {
         //uint flightCount = dataContract.getFlightCount();
         //uint insuranceCount = dataContract.getInsuranceCount();
 
-        if(airlinesCount < maxAutoApprovedAirlines){ //Consensus not required
+        if(airlinesCount <= maxAutoApprovedAirlines){ //Consensus not required
             dataContract.registerAirline(airline, msg.sender);
             //Emit approved
         } else { //Requires consensus
-            if(votes < minVotes) { //Not approved
-                address[] memory approvals = dataContract.getApprovals(airline);
+            if(votes >= minVotes) { //approved
+                dataContract.setApproved(airline, true);
+                //emit Votes Registered(_address);
+            } else { //Not approved
+            address[] memory approvals = dataContract.getApprovals(airline);
                 for(uint i = 0; i < approvals.length; i++) {
                     require(approvals[i] != msg.sender, "Airline already voted for approval");
                 }
                 dataContract.registerVote(airline, msg.sender);
-                //emit AirlineRegistered(_address);
-            }
-            else { //Is approved
-                dataContract.setApproved(airline, true);
-                //emit Votes Registered(_address);
+                votes = dataContract.getAirlineVotes(airline);
+                if (votes >= minVotes){
+                    dataContract.setApproved(airline, true);
+                    //emit AirlineRegistered(_address);
+                }
             }
         }
         //return (success, 0);
