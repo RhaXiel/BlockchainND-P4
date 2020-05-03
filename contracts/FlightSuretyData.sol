@@ -13,7 +13,9 @@ contract FlightSuretyData {
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
 
     uint private airlinesCount = 0;
+
     uint private flightCount = 0;
+    
     uint private insuranceCount = 0;
 
     mapping(address => bool) private authorizedCallers;
@@ -174,8 +176,6 @@ contract FlightSuretyData {
         _;
     }
 
-    
-
     modifier requireContractHasEnoughFunds(address insuree)
     {
         require(address(this).balance > insuranceCredits[insuree], "Contract does not have enough funds");
@@ -314,10 +314,28 @@ contract FlightSuretyData {
         return insuranceCount;
     }
 
-    function getApprovals(address airline) external view returns(address[])
+    function getApprovals(address airline) external view returns(address[] memory)
     {
         return approvals[airline];
     }
+
+    function getInsuracesFlight(uint flightId) external view returns(uint[] memory)
+    {
+        return flightInsurances[flightId];
+    }
+
+    function getInsureeCredits(address insuree) external view returns(uint)
+    {
+        return insuranceCredits[insuree];
+    }
+
+    /*
+    function getInsurances 
+    mapping(uint => Insurance) private insurances;
+    mapping(address => uint[]) private passengerInsurances;
+    mapping(uint => uint[]) private flightInsurances;
+
+    mapping(address => uint) private insuranceCredits; */
 
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
@@ -406,7 +424,8 @@ contract FlightSuretyData {
         flightInsurances[flightId].push(insuranceCount);
         passengerInsurances[insuree].push(insuranceCount);
         //emit BoughtInsurance(insurancesById[insuranceCount].id);
-        address(this).transfer(amountPaid);
+
+        //address(this).transfer(amountPaid);
     }
 
     /**
@@ -429,7 +448,7 @@ contract FlightSuretyData {
         insuranceCredits[_insurance.insuree] = insuranceCredits[_insurance.insuree].add(credit);
         //Emit Credited
     }
-    
+
 
     /**
      *  @dev Transfers eligible payout funds to insuree
@@ -440,6 +459,7 @@ contract FlightSuretyData {
                                 address insuree
                             )
                             external
+                            payable
                             requireIsOperational
                             requireAuthorizedCaller
                             requireCreditedInsurance(insuree)

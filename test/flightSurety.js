@@ -189,7 +189,6 @@ contract('Flight Surety Tests', async (accounts) => {
 
       const addressNoConsensus1 = config.testAddresses[0];
       const addressNoConsensus2 = config.testAddresses[1];
-      const addressNoConsensus3 = config.testAddresses[2];
 
       async function isApproved(airline){
         const isRegistered = await config.flightSuretyData.isAirlineIsExist.call(airline);
@@ -220,17 +219,92 @@ contract('Flight Surety Tests', async (accounts) => {
     assert.equal(approved, true, "Consensus not achieved.");
   });
 
-  it('(passenger) may pay up to 1 ether for purchasing flight insurance', async () => {
+  it('(flight) funded airline can register flights', async () => {
+    const registeredAirline = config.testAddresses[1];
+    const timestamp = config.timestamp;
     
-    assert.equal(true,true, "true");
+    const flight = 'ND1309'; // Course number
+  
+    const STATUS_CODE_UNKNOWN = 0;
+    const status = STATUS_CODE_UNKNOWN;
+    
+    let isRegistered = false;
+    try{
+      await config.flightSuretyApp.registerFlight(status, flight, timestamp, {from: registeredAirline});
+      isRegistered =  await config.flightSuretyApp.getFlightIsRegistered.call(registeredAirline, flight, timestamp);
+    }catch(err){
+      console.log(err);
+    }
+    assert.equal(isRegistered,true, "Flight could not be registered");
+  });
+
+  it('(passenger) may pay up to 1 ether for purchasing flight insurance', async () => {
+    const passenger1 = config.testAddresses[4];
+    const dataContractAddress = config.flightSuretyData.address;
+
+    const flight = 'ND1309'; // Course number
+
+    const balance =  await web3.eth.getBalance(dataContractAddress);
+     
+    const insuranceValue = web3.utils.toWei("1", "ether");
+
+    try{
+      await config.flightSuretyApp.buyInsurance(flight, passenger1, {from: passenger1, value: insuranceValue})
+    }catch(err){
+      console.log(err);
+    }
+
+    const newBalance =  await web3.eth.getBalance(dataContractAddress);
+
+    assert.equal(newBalance, (Number(balance) + Number(insuranceValue)).toString(), "Insurance purchase wasn't succesful");
   });
 
   it('(flight) if is delayed due to airline fault, passenger receives credit of 1.5X the amount they paid', async () => {
-    assert.equal(true,true, "true");
+    const registeredAirline = config.testAddresses[1];
+    const passenger1 = config.testAddresses[4];
+    const timestamp = config.timestamp;
+
+    const flight = 'ND1309'; // Course number
+    
+    const STATUS_CODE_LATE_AIRLINE = 20;
+
+    const creditValue = 1.5; //Insurance value is 1 Ether.
+
+    let creditsBefore, creditsAfter, _creditsBefore, _creditsAfter;
+
+    try{
+      _creditsBefore = await config.flightSuretyApp.getInsureeCredits(passenger1);
+      creditsBefore = web3.utils.fromWei(_creditsBefore, "ether" );
+      await config.flightSuretyApp.processFlightStatus(registeredAirline, flight, timestamp, STATUS_CODE_LATE_AIRLINE, {from: registeredAirline})
+      _creditsAfter = await config.flightSuretyApp.getInsureeCredits(passenger1);
+      creditsAfter = web3.utils.fromWei(_creditsAfter, "ether" );
+    }catch(err){
+      console.log(err);
+    }
+    
+    assert.equal(creditsAfter.toString(), (Number(creditsBefore) + Number(creditValue)).toString(), "Credited value is not calculated as expected.");
   });
 
   it('(passenger) can withdraw any funds owed to them as a result of receiving credit for insurance payout', async () => {
-    assert.equal(true,true, "true");
+    const passenger1 = config.testAddresses[4];
+    const balance = new BigNumber(await web3.eth.getBalance(passenger1));
+    
+    let credits, _credits, gasUsed, gasPrice;
+    
+    try{
+      _credits = new BigNumber(await config.flightSuretyApp.getInsureeCredits(passenger1));
+      const receipt = await config.flightSuretyApp.witdrawCredits({from: passenger1})
+      gasUsed = new BigNumber(receipt.receipt.gasUsed);
+      const tx = await web3.eth.getTransaction(receipt.tx);
+      gasPrice = new BigNumber(tx.gasPrice);
+    }catch(err){
+      console.log(err);
+    }
+    const newBalance = new BigNumber(await web3.eth.getBalance(passenger1));
+
+    const isEqual = newBalance.isEqualTo(balance.plus(_credits.minus(gasPrice.times(gasUsed))));
+
+    assert.equal(isEqual, true , "Insuree could't withdraw credits");
   });
 
   it('(oracle) Upon startup, 20+ oracles are registered and their assigned indexes are persisted in memory', async () => {

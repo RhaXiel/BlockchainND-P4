@@ -30,6 +30,8 @@ contract FlightSuretyApp {
 
     bool private operational = true;
 
+    uint private flightCount = 0;
+
     address[] voters = new address[](0);
 
     //Events
@@ -43,15 +45,17 @@ contract FlightSuretyApp {
         uint8 statusCode;
         uint256 updatedTimestamp;
         address airline;
+        string flight;
+        uint id;
     }
 
     mapping(bytes32 => Flight) private flights;
+    mapping(string => uint) private flightIds;
 
 
     uint256 public airlineRegistrationFee = 10 ether;
     uint256 public insuranceCap = 1 ether;
-    uint256 public oracleRegistrationFee = 1 ether;
-
+    
     address _dataContractAddress;
 
  
@@ -136,6 +140,18 @@ contract FlightSuretyApp {
         _;
     }
 
+    modifier requireFlightIdRegistered(string memory flight)
+    {
+        require(flightIds[flight] > 0, "Flight id is not registered");
+        _;
+    }
+
+    modifier insureeHasCredits(address insuree)
+    {
+        require(this.getInsureeCredits(insuree) > 0, "Insuree has no credits");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -157,10 +173,6 @@ contract FlightSuretyApp {
 
         dataContract = FlightSuretyData(dataContractAddress);
         _dataContractAddress = dataContractAddress;
-        //dataContract.registerAirline.value(msg.value)(firstAirline);
-
-        /* airlinescount = airlinesCount.add(1);
-        arilines[msg.sender] = Airline({id: airlinesCount, isVoter: true}); */
     }
 
     /********************************************************************************************/
@@ -169,6 +181,7 @@ contract FlightSuretyApp {
 
     function isOperational()
                             public
+                            view
                             returns(bool)
     {
         return operationalContract;  // Modify to call data contract's status
@@ -176,6 +189,7 @@ contract FlightSuretyApp {
 
     function getInsuranceCap()
                             public
+                            view
                             returns(uint256)
     {
         return insuranceCap;
@@ -203,6 +217,24 @@ contract FlightSuretyApp {
                             requireContractOwner
     {
         airlineRegistrationFee = fee;
+    }
+
+    function getFlightCount() external view returns(uint)
+    {
+        return flightCount;
+    }
+
+    function getFlightIsRegistered( address airline,
+                                    string flight,
+                                    uint256 timestamp)
+                                    external view returns(bool){
+        bytes32 flightKey = getFlightKey(airline, flight, timestamp);
+        return flights[flightKey].isRegistered;
+    }
+
+    function getInsureeCredits(address insuree) external view returns(uint)
+    {
+        return dataContract.getInsureeCredits(insuree);
     }
 
     /********************************************************************************************/
@@ -262,15 +294,17 @@ contract FlightSuretyApp {
     *
     */
     function registerFlight
-                               (uint8 status, string flight)
+                               (uint8 status, string flight, uint256 timestamp)
     external
     requireIsOperational
-    //onlyPaidAirlines
+    requireAirlineIsVoter(msg.sender)
     {
-        bytes32 flightKey = getFlightKey(msg.sender, flight, now);
-
-        flights[flightKey] = Flight(status, now, msg.sender, flight);
-        flightsKeyList.push(flightKey);
+        bytes32 flightKey = getFlightKey(msg.sender, flight, timestamp);
+        flightCount = flightCount.add(1);
+        flights[flightKey] = Flight(true, status, timestamp, msg.sender, flight, flightCount);
+        flightIds[flight] = flightCount;
+        //flightsKeyList.push(flightKey);
+        //emit
     }
 
    /**
@@ -284,15 +318,20 @@ contract FlightSuretyApp {
                                     uint256 timestamp,
                                     uint8 statusCode
                                 )
-                                private
+                                public
+    requireIsOperational
+    //is airline
+    //is airline flight
     {
         bytes32 flightKey = getFlightKey(airline, flight, timestamp);
         flights[flightKey].statusCode = statusCode;
 
-        emit FlightStatusProcessed(airline, flight, statusCode);
+         if (statusCode == STATUS_CODE_LATE_AIRLINE){
+             creditInsurance(flightIds[flight]);
+         }
+
+        //emit FlightStatusProcessed(airline, flight, statusCode);
     }
-
-
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus
@@ -315,12 +354,20 @@ contract FlightSuretyApp {
         emit OracleRequest(index, airline, flight, timestamp);
     }
 
-    function creditInsurance(uint insuranceId) external requireIsOperational
+    function creditInsurance(uint flightId) private requireIsOperational
+    //isSelfCaller
     {
-        dataContract.creditInsurees(insuranceId);
+        uint[] memory insurancesFlight = dataContract.getInsuracesFlight(flightId);
+        for(uint i = 0; i < insurancesFlight.length; i++) {
+            dataContract.creditInsurees(insurancesFlight[i]);
+        }
+        //emit credited insurances
     }
 
-    function buyInsurance(uint flightId, address insuree) external requireIsOperational requireMinimunInsurance payable
+    function buyInsurance(string flight, address insuree) external
+    requireIsOperational
+    requireMinimunInsurance
+    requireFlightIdRegistered(flight) payable
     {
         uint amountPaid;
         if (msg.value >= insuranceCap) {
@@ -330,8 +377,8 @@ contract FlightSuretyApp {
         }
 
         uint amountToReturn = msg.value.sub(amountPaid);
-
-        dataContract.buy(flightId, insuree, amountPaid);
+        dataContract.buy(flightIds[flight], insuree, amountPaid);
+        address(dataContract).transfer(amountPaid);
         address(msg.sender).transfer(amountToReturn);
     }
 
@@ -346,7 +393,14 @@ contract FlightSuretyApp {
         //emit RegistrationFeePaid(msg.sender, registrationFee);
     }
 
-
+    function witdrawCredits() external
+                              payable
+                              requireIsOperational
+                              insureeHasCredits(msg.sender)
+    {
+        dataContract.pay(msg.sender);
+        //Emit credits withdrawn(msg.sender)
+    }
 
 // region ORACLE MANAGEMENT
 
@@ -538,6 +592,8 @@ contract FlightSuretyData {
     function getInsuranceCount() public view returns(uint);
 
     function getMaxAutoAprovedAirlines() public view returns(uint);
+    function getInsuracesFlight(uint flightId) external view returns(uint[] memory);
+    function getInsureeCredits(address insuree) external view returns(uint);
 
     //Contract functions
     function registerAirline(address airline, address registeredAirline) public payable;
@@ -548,29 +604,7 @@ contract FlightSuretyData {
     function setFunded(address airline, bool isVoter) public;
     function creditInsurees(uint insuranceId) public;
     function buy(uint flightId, address insuree, uint amountPaid) public payable;
+    function pay(address insuree) public payable;
     function fund() public payable;
     function () external payable;
 }
-
-
-
-/*
-function setIsAuthorizedCaller(address _address, bool isAuthorized) public;
-    function createAirline(address airlineAddress, bool isVoter) public;
-    function addFunds(uint _funds) public;
-    function getAirlinesCount() public view returns (uint);
-    function createInsurance(uint _flightId, uint _amountPaid, address _owner) public;
-    function getInsurance(uint _id) public view returns (uint id, uint flightId, string memory state, uint amountPaid, address owner);
-    function createFlight(string _code, uint _departureTimestamp, address _airlineAddress) public;
-    function getFlight(uint _id) public view returns (uint id, string flight, bytes32 key, address airlineAddress, string memory state, uint departureTimestamp, uint8 departureStatusCode, uint updated);
-    function getInsurancesByFlight(uint _flightId) public view returns (uint[]);
-    function creditInsurance(uint _id, uint _amountToCredit) public;
-    function getAirline(address _address) public view returns (address, uint, bool);
-    function setAirlineIsVoter(address _address, bool isVoter) public;
-    function setDepartureStatusCode(uint _flightId, uint8 _statusCode) public;
-    function setUnavailableForInsurance(uint flightId) public;
-    function getFlightIdByKey(bytes32 key) public view returns (uint);
-    function createFlightKey(address _airlineAddress, string memory flightCode, uint timestamp) public returns (bytes32);
-    function withdrawCreditedAmount(uint _amountToWithdraw, address _address) public payable;
-    function getCreditedAmount(address _address) public view returns (uint);
-    */

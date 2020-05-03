@@ -35,6 +35,7 @@ var Config = async function(accounts) {
         flightSuretyData: flightSuretyData,
         flightSuretyApp: flightSuretyApp,
         minimumFunding: funding,
+        timestamp: Math.floor(Date.now() / 1000), //Timestamp for all the flight related tests
     }
 }
 

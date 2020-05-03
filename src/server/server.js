@@ -35,7 +35,7 @@ flightSuretyApp.events.OracleRequest({
     fromBlock: 0
   }, function (error, event) {
     if (error) console.log("Error:",  error)
-    console.log(event)
+    console.log('oracle-requiest', event)
 });
 
 const app = express();
