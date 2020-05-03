@@ -289,10 +289,10 @@ contract('Flight Surety Tests', async (accounts) => {
     const passenger1 = config.testAddresses[4];
     const balance = new BigNumber(await web3.eth.getBalance(passenger1));
     
-    let credits, _credits, gasUsed, gasPrice;
+    let credits, gasUsed, gasPrice;
     
     try{
-      _credits = new BigNumber(await config.flightSuretyApp.getInsureeCredits(passenger1));
+      credits = new BigNumber(await config.flightSuretyApp.getInsureeCredits(passenger1));
       const receipt = await config.flightSuretyApp.witdrawCredits({from: passenger1})
       gasUsed = new BigNumber(receipt.receipt.gasUsed);
       const tx = await web3.eth.getTransaction(receipt.tx);
@@ -302,7 +302,7 @@ contract('Flight Surety Tests', async (accounts) => {
     }
     const newBalance = new BigNumber(await web3.eth.getBalance(passenger1));
 
-    const isEqual = newBalance.isEqualTo(balance.plus(_credits.minus(gasPrice.times(gasUsed))));
+    const isEqual = newBalance.isEqualTo(balance.plus(credits.minus(gasPrice.times(gasUsed))));
 
     assert.equal(isEqual, true , "Insuree could't withdraw credits");
   });

@@ -5,7 +5,6 @@ import './flightsurety.css';
 
 
 (async() => {
-
     let result = null;
 
     let contract = new Contract('localhost', () => {
@@ -23,6 +22,18 @@ import './flightsurety.css';
             // Write transaction
             contract.fetchFlightStatus(flight, (error, result) => {
                 display('Oracles', 'Trigger oracles', [ { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp} ]);
+            });
+        })
+
+        
+        // Submit airline to register
+        DOM.elid('submit-register-airline').addEventListener('click', () => {
+            let airline = DOM.elid('register-airline-address').value;
+            // Write transaction
+            feedToast("Hola", "TOASSTTTT");
+            contract.registerAirline(airline, (error, result) => {
+                
+                //display('Oracles', 'Trigger oracles', [ { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp} ]);
             });
         })
     
@@ -47,9 +58,17 @@ function display(title, description, results) {
 
 }
 
-
-
-
-
-
-
+function feedToast(title, message){
+    let toastDiv = DOM.elid("myToast");
+    let toastContent = DOM.div({className:'toast', role:'alert', dataAutohide:false, ariaLive:'assertive', ariaAomic: true});
+    let toastBody = DOM.div(message, {className:'body'});
+    let closeButton = DOM.button({type: 'button', className:'ml-2 mb-1 close', dataDismiss:"toast", ariaLabel: "Close"});
+    closeButton.appendChild(DOM.span("&times;", {ariaHidden: true}));
+    let toastTitle = DOM.strong(title, {className: 'mr-auto'});
+    let toastHeader = DOM.div({className: "toast-header"});
+    toastHeader.appendChild(toastTitle);
+    toastHeader.appendChild(closeButton);
+    toastContent.appendChild(toastHeader);
+    toastContent.appendChild(toastBody);
+    toastDiv.appendChild(toastContent);
+}

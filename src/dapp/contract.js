@@ -53,4 +53,12 @@ export default class Contract {
                 callback(error, payload);
             });
     }
+    registerAirline(airline){
+        let self = this;
+        self.flightSuretyApp.methods
+        .registerAirline(airline)
+        .send({from: self.owner}), (error, result) =>{
+            callback(error, airline);
+        }
+    }
 }
