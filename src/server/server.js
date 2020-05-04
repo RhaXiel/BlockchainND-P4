@@ -9,33 +9,47 @@ let web3 = new Web3(new Web3.providers.WebsocketProvider(config.url.replace('htt
 web3.eth.defaultAccount = web3.eth.accounts[0];
 let flightSuretyApp = new web3.eth.Contract(FlightSuretyApp.abi, config.appAddress);
 
+/*
+In server.js register the oracles
+In server.js handle the OracleRequest events that are emitted when the function fetchFlightStatusfunction is called
+In server.js submit the oracle response calling the function submitOracleResponsefunction in the contracts
+*/
 
 const oracles = [];
 
-//Initialize oracle
-/* const init = async() =>{
-  let accounts = await web3.eth.getAccounts();
-
-  const statusCode = process.env.STATUS_CODE;
-  const registrationFee = web3.utils.toWei('1', 'ether');
-  config.appAddress
-  // register 20 oracles
-  accounts.slice(10, 30).forEach((account) => {
-      const oracle = new Oracle(account, statusCode);
-      oracle.startListening(flightSuretyApp, registrationFee);
-      oracles.push(oracle);
-  });
-};
-init(); */
-
 //Oracle updates
+const TEST_ORACLES_COUNT = 20;
+  var config;
+
+  // Watch contract events
+  const STATUS_CODE_UNKNOWN = 0;
+  const STATUS_CODE_ON_TIME = 10;
+  const STATUS_CODE_LATE_AIRLINE = 20;
+  const STATUS_CODE_LATE_WEATHER = 30;
+  const STATUS_CODE_LATE_TECHNICAL = 40;
+  const STATUS_CODE_LATE_OTHER = 50;
+
+//Initialize Oracles
+(async ()=>{
+    // ARRANGE
+    let fee = await config.flightSuretyApp.REGISTRATION_FEE.call();
+
+    // ACT
+    for(let a=1; a<TEST_ORACLES_COUNT; a++) {      
+      await flightSuretyApp.methods.registerOracle().send({ from: web3.eth.accounts[a], value: fee });
+      let result = await config.flightSuretyApp.getMyIndexes.call({from: accounts[a]});
+      console.log(`Oracle Registered: ${result[0]}, ${result[1]}, ${result[2]}`);
+      //request
+      
+    }
+})();
 
 //Boilerplate
 flightSuretyApp.events.OracleRequest({
     fromBlock: 0
   }, function (error, event) {
     if (error) console.log("Error:",  error)
-    console.log('oracle-requiest', event)
+    console.log('oracle-request', event)
 });
 
 const app = express();

@@ -11,37 +11,6 @@
 </head>
 
 <body>
-    <div aria-live="polite" aria-atomic="true" style="position: relative; min-height: 200px;">
-        <div id="myToast" style="position: absolute; top: 80px; right: 40px;">
-
-            <div class="toast" role="alert" data-autohide="false" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header">
-                    <strong class="mr-auto">Bootstrap</strong>
-                    <small>11 mins ago</small>
-                    <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="toast-body">
-                    Hello, world! This is a toast message.
-                </div>
-            </div>
-
-            <div class="toast" role="alert" data-autohide="false" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header">
-                    <strong class="mr-auto">Bootstrap</strong>
-                    <small>11 mins ago</small>
-                    <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="toast-body">
-                    Hello, world! This is a toast message.
-                </div>
-            </div>
-
-        </div>
-    </div>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
         <a class="navbar-brand" href="#">FlightSurety</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault"
@@ -50,9 +19,6 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav mr-auto">
-                <li class="nav-item active" id="contract-resource">
-                    <a class="nav-link" href="#">Contract Information<span class="sr-only">(current)</span></a>
-                </li>
                 <li class="nav-item" id="airlines-resource">
                     <a class="nav-link" href="#Airlines">Airlines</a>
                 </li>
@@ -61,6 +27,9 @@
                 </li>
                 <li class="nav-item" id="insurances-resource">
                     <a class="nav-link" href="#Insurances">Insurances</a>
+                </li>
+                <li class="nav-item" id="contract-resource">
+                    <a class="nav-link" href="#ContractInformation">Contract Information<span class="sr-only">(current)</span></a>
                 </li>
             </ul>
         </div>
@@ -75,7 +44,7 @@
                 <form class="w-100">
                     <div class="form-group">
                         <label class="form">Airline address</label>
-                        <input type="text" id="register-airline-address" placeholder="0x...">
+                        <input type="text" id="register-airline-address" placeholder="0x..." class="form-control">
                     </div>
                     <btn class="btn btn-primary w-100" id="submit-register-airline">Register</btn>
                 </form>
@@ -86,20 +55,27 @@
                 <form class="w-100">
                     <div class="form-group">
                         <label class="form">Airline address</label>
-                        <input type="text" id="check-airline-address" placeholder="0x...">
-
+                        <input type="text" id="check-airline-address" placeholder="0x..." class="form-control">
                     </div>
                     <btn class="btn btn-primary w-100" id="check-airline-status">Check Status</btn>
 
                     <hr class="border border-secondary" />
                     <div class="form-group">
                         <label class="form">Is Registered</label>
-                        <span id="is-registered-check" class="text-success">Registered</span>
+                        <span id="is-registered-check" class="text-success"></span>
                     </div>
 
                     <div class="form-group">
                         <label class="form">Participates in voting</label>
-                        <span class="text-danger">Not voter</span>
+                        <span id="is-voter-check" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form">Approved</label>
+                        <span id="is-approved-check" class="text-danger"></span>
+                    </div>
+
+                    <div id="register-airline-errors">
                     </div>
                 </form>
             </div>
@@ -108,8 +84,12 @@
                 <h5>Fund airline</h5>
                 <form class="w-100">
                     <div class="form-group">
-                        <label class="form">Funding amount</label>
-                        <input type="text" id="airline-fund" placeholder="10">
+                        <label class="form">Airline to fund</label>
+                        <input type="text" id="fund-airline-address" placeholder="0x..." class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form">Funding amount (ETH)</label>
+                        <input type="text" id="airline-fund" placeholder="10" class="form-control">
                     </div>
                     <btn class="btn btn-primary w-100" id="fund-airline">Submit funds</btn>
                 </form>
@@ -120,17 +100,22 @@
 
     <div class="container">
         <div id="Flights">
+
             <h1>Flights</h1>
             <div class="row my-4 border border-secondary p-4">
                 <h5>Register Flight</h5>
-                <form>
+                <form class="w-100">
+                    <div class="form-group">
+                        <label class="form">Registering airline</label>
+                        <input type="text" id="register-flight-airline" class="form-control">
+                    </div>
                     <div class="form-group">
                         <label class="form">Flight reference</label>
-                        <input type="text" id="register-flight-reference">
+                        <input type="text" id="register-flight-reference" class="form-control">
                     </div>
                     <div class="form-group">
                         <label class="form">Status</label>
-                        <select id="register-flight-Status" class="custom-select">
+                        <select id="register-flight-status" class="custom-select form-control">
                             <option class="dropdown-item" value="0" selected>STATUS_CODE_UNKNOWN</option>
                             <option class="dropdown-item" value="10">STATUS_CODE_ON_TIME</option>
                         </select>
@@ -138,8 +123,8 @@
 
                     <div class="form-group">
                         <label class="form">Timestamp</label>
-                        <input type="text" id="register-flight-timestamp">
-                        <btn class="btn btn-info" id="current-timestamp">Current Timestamp</btn>
+                        <input type="text" id="register-flight-timestamp" class="form-control">
+                        <btn class="btn btn-info" id="register-flight-current-timestamp" class="form-control">Current Timestamp</btn>
                     </div>
                     <btn class="btn btn-primary w-100" id="register-flight">Register Flight</btn>
                 </form>
@@ -152,25 +137,20 @@
             <h1>Insurances</h1>
             <div class="row my-4 border border-secondary p-4">
                 <h5>Purchase Insurance</h5>
-                <form>
+                <form class="w-100">
                     <div class="form-group">
                         <label class="form">Flight reference</label>
-                        <input type="text" id="insurance-flight-reference">
-                    </div>
-                    <div class="form-group">
-                        <label class="form">Timestamp</label>
-                        <input type="text" id="insurances-flight-timestamp">
-                        <btn class="btn btn-info" id="current-timestamp">Current Timestamp</btn>
+                        <input type="text" id="insurance-flight-reference" class="form-control">
                     </div>
                     <div class="form-group">
                         <label class="form">Insuree address</label>
-                        <input type="text" id="insuree-insurance-address">
+                        <input type="text" id="insuree-insurance-address" class="form-control">
                         <small id="insuree-insurance-address-help" class="form-text text-muted">In case you're buying
                             insurance for someone else..</small>
                     </div>
                     <div class="form-group">
                         <label class="form">Insurance amount</label>
-                        <input type="text" id="insurance-amount" placeholder="1">
+                        <input type="text" id="insurance-amount" placeholder="1" class="form-control">
                     </div>
                     <btn class="btn btn-primary w-100" id="purchase-insurance">Purchase Insurance</btn>
                 </form>
@@ -180,13 +160,13 @@
                 <form class="w-100">
                     <div class="form-group">
                         <label class="form">Insuree address</label>
-                        <input type="text" id="insuree-address">
+                        <input type="text" id="insuree-address" class="form-control">
                     </div>
                     <btn class="btn btn-primary w-100" id="check-credits">Check for Credits</btn>
                     <hr class="border border-secondary" />
                     <div class="form-group">
                         <label class="form">Credits</label>
-                        <span id="is-registered-check" class="text-success">12.1241 ETH</span>
+                        <span id="insuree-credits" class="text-success"></span>
                     </div>
 
                 </form>
@@ -197,6 +177,10 @@
                 <form class="w-100">
                     <small id="claim-insurance-help" class="form-text text-muted">In case if your flight is delayed due
                         to airline fault, you will be credited 1.5X the amount you paid for insurance</small>
+                        <div class="form-group">
+                            <label class="form">Insuree address</label>
+                            <input type="text" id="insuree-claim-address" class="form-control">
+                        </div>
                     <btn class="btn btn-primary w-100" id="claim-insurance">Claim insurance</btn>
                 </form>
             </div>
@@ -205,35 +189,35 @@
     </div>
 
     <!--Flight Oracles-->
-    <main class="container">
+    <main class="container" id="ContractInformation">
         <div id="display-wrapper" class="my-3">
         </div>
-        <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number">
+        <div class="row my-4 border border-secondary p-4">
+            <form class="w-100">            
+            <div class="form-group">
+                <label class="form">Flight reference</label>
+                <input type="text" id="flight-number" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form">Airline</label>
+                <input type="text" id="submit-oracles-airline" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form">Timestamp</label>
+                <input type="text" id="submit-oracles-timestamp" class="form-control">
+                <btn class="btn btn-info" id="submit-oracles-current-timestamp" class="form-control">Current Timestamp</btn>
+            </div>
             <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+        </form>
         </div>
-        <div class="row top-20">
+
+
+        <div class="row my-4 border border-secondary p-4">
             <h5>Admin Zone</h5>
-            <btn class="btn btn-primary w-100 p-3" id="submit-oracle">Change Operating Status</btn>
+            <btn class="btn btn-primary w-100 p-3" id="operation-change">Change Operating Status</btn>
         </div>
 
     </main>
-
-    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
-        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
-        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
-        crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
-        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
-        crossorigin="anonymous"></script>
-
-    <script>
-        $(document).ready(function () {
-            $(".toast").toast('show');
-        });
-    </script>
 
 </body>
 

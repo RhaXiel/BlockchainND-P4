@@ -237,6 +237,19 @@ contract FlightSuretyApp {
         return dataContract.getInsureeCredits(insuree);
     }
 
+    function isAirlineIsExist(address airline) public view returns(bool)
+    {
+        return dataContract.isAirlineIsExist(airline);
+    }
+    function isAirlineIsVoter(address airline) public view returns(bool)
+    {
+        return dataContract.isAirlineIsVoter(airline);
+    }
+    function isAirlineIsApproved(address airline) public view returns(bool)
+    {
+        return dataContract.isAirlineIsApproved(airline);
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/

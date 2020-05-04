@@ -14,7 +14,7 @@ export default class Contract {
         this.passengers = [];
     }
 
-    initialize(callback) {
+    async initialize(callback) {
         this.web3.eth.getAccounts((error, accts) => {
            
             this.owner = accts[0];
@@ -31,6 +31,9 @@ export default class Contract {
 
             callback();
         });
+        try {
+            await this.flightSuretyData.methods.authorizeCallerContract(this.config.appAddress).send({from: this.owner})
+        } catch(e) { }
     }
 
     isOperational(callback) {
@@ -40,25 +43,117 @@ export default class Contract {
             .call({ from: self.owner}, callback);
     }
 
-    fetchFlightStatus(flight, callback) {
+    async fetchFlightStatus(flight, airline, timestamp, callback) {
         let self = this;
-        let payload = {
-            airline: self.airlines[0],
-            flight: flight,
-            timestamp: Math.floor(Date.now() / 1000)
-        } 
         self.flightSuretyApp.methods
-            .fetchFlightStatus(payload.airline, payload.flight, payload.timestamp)
-            .send({ from: self.owner}, (error, result) => {
-                callback(error, payload);
+            .fetchFlightStatus(airline, flight, timestamp)
+            .send({ from: self.airlines[0]}, async (error, result) => {
+                callback(error, {flight: flight, airline: airline, timestamp: timestamp});
             });
     }
-    registerAirline(airline){
+    
+    registerAirline(airline, callback){
         let self = this;
         self.flightSuretyApp.methods
         .registerAirline(airline)
-        .send({from: self.owner}), (error, result) =>{
-            callback(error, airline);
-        }
+        .send({from: self.airlines[0], gas: 1500000}, (error, result) =>{
+            callback(error, airline, result);
+        });
+    }
+
+    fundAirline(airline, fund, callback){
+        let self = this;
+        const _fund = self.web3.utils.toWei(fund, "ether");
+        self.flightSuretyApp.methods
+        .fundAirline()
+        .send({from: airline, value: _fund, gas: 1500000}, (error, result) =>
+        {
+            (error) && console.error(error);
+            callback(error, result);
+        });
+    }
+
+    registerFlight(status, flight, timestamp, registeringAirline, callback){
+        let self = this;
+        self.flightSuretyApp.methods
+        .registerFlight(status, flight, timestamp)
+        .send({from: registeringAirline, gas:1500000}, (error, result) =>
+        {
+            callback(error, result);
+        });
+    }
+
+    buyInsurance(flight, passenger, insuranceValue, callback){
+        let self = this;
+        self.flightSuretyApp.methods
+        .buyInsurance(flight, passenger)
+        .send({from: passenger, value: insuranceValue, gas: 1500000}, (error, result) =>
+        {
+            callback(error, result);
+        })
+    }
+
+    getInsureeCredits(passenger, callback){
+        let self = this;
+        self.flightSuretyApp.methods
+        .getInsureeCredits(passenger)
+        .call({from: passenger, gas:1500000}, (error, result) =>
+        {
+            callback(error,self.web3.utils.fromWei(result, "ether" ));
+        })
+    }
+
+    witdrawCredits(passenger, callback){
+        let self = this;
+        self.flightSuretyApp.methods
+        .witdrawCredits()
+        .send({from: passenger, gas:1500000}, (error, result) =>{
+            callback(error, result);
+        })
+    }
+
+    operatingChange(callback){
+        let self = this;
+        self.flightSuretyApp.methods
+            .isOperational()
+            .call({ from: self.owner}, (error, response) =>
+                {
+                    self.flightSuretyApp.methods
+                    .setOperatingStatus(!response)
+                    .send({from: self.owner}, (_error, _response) =>
+                    {
+                        callback(_error,_response);
+                    })
+                });
+    }
+    
+    isAirlineIsExist(airline, callback){
+        let self = this;
+        self.flightSuretyApp.methods
+        .isAirlineIsExist(airline)
+        .call({from: self.owner}, (error, result) => 
+        {
+            callback(error, result);
+        });
+    }
+
+    isAirlineIsVoter(airline, callback){
+        let self = this;        
+        self.flightSuretyApp.methods
+        .isAirlineIsVoter(airline)
+        .call({from: self.owner}, (error, result) =>
+        {
+            callback(error, result);
+        });
+    }
+
+    isAirlineIsApproved(airline, callback){
+        let self = this;        
+        self.flightSuretyApp.methods
+        .isAirlineIsApproved(airline)
+        .call({from: self.owner}, (error, result) =>
+        {
+            callback(error, result);
+        });
     }
 }
