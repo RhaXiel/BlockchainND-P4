@@ -11,6 +11,12 @@ To install, download or clone the repo, then:
 `npm install`
 `truffle compile`
 
+Runs on the following versions:
+    Truffle v5.0.8 (core: 5.0.8)
+    Solidity - ^0.4.25 (solc-js)
+    Node v10.7.0
+    Web3.js v1.0.0-beta.37
+
 ## Develop Client
 
 To run truffle tests:
