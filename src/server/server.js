@@ -22,7 +22,7 @@ init();
 async function init() {
     const accounts = await web3.eth.getAccounts();
 
-    const TEST_ORACLES_COUNT = 20;
+    const TEST_ORACLES_COUNT = 60;
     await registerOracles(accounts.slice(1, TEST_ORACLES_COUNT + 1));
 
     flightSuretyApp.events.OracleRequest({fromBlock: 0}, async (error, event) => {
