@@ -17,6 +17,7 @@ let flightSuretyApp = new web3.eth.Contract(
 
 const oracles = [];
 
+//Edited from https://github.com/ireade/nd1309-flight-surety/blob/master/src/server/server.js
 init();
 async function init() {
     const accounts = await web3.eth.getAccounts();
