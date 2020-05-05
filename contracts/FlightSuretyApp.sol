@@ -35,6 +35,13 @@ contract FlightSuretyApp {
     address[] voters = new address[](0);
 
     //Events
+    event ApprovedAirline(address airline, address registeringAirline, bool requiredConsensus);
+    event RegisteredAirline(address airline, uint currentVotes, uint requiredVotes);
+    event RegisteredFlight(uint8 status, string flight, uint256 timestamp, address airline);
+    event CreditedInsurances(uint flightId, uint insuranceCount);
+    event PurchasedInsurance(string flight, address insuree, uint amount);
+    event CreditsWithdrawn(address insuree);
+    event FundedAirline(address airline, uint fund);
 
 
     address private contractOwner;          // Account used to deploy contract
@@ -268,23 +275,20 @@ contract FlightSuretyApp {
                             requireAirlineIsApproved(msg.sender)
                             requireAirlineIsVoter(msg.sender)
                             requireAirlineNotApproved(airline)
-                            //returns(bool success, uint256 votes)
     {
         uint maxAutoApprovedAirlines = dataContract.getMaxAutoAprovedAirlines();
         uint minVotes = dataContract.getAirlineMinVotes(airline);
         uint votes = dataContract.getAirlineVotes(airline);
 
         uint airlinesCount = dataContract.getAirlinesCount();
-        //uint flightCount = dataContract.getFlightCount();
-        //uint insuranceCount = dataContract.getInsuranceCount();
 
         if(airlinesCount <= maxAutoApprovedAirlines){ //Consensus not required
             dataContract.registerAirline(airline, msg.sender);
-            //Emit approved
+            emit ApprovedAirline(airline, msg.sender, false);
         } else { //Requires consensus
             if(votes >= minVotes) { //approved
                 dataContract.setApproved(airline, true);
-                //emit Votes Registered(_address);
+                emit ApprovedAirline(airline, msg.sender, true);
             } else { //Not approved
             address[] memory approvals = dataContract.getApprovals(airline);
                 for(uint i = 0; i < approvals.length; i++) {
@@ -294,11 +298,10 @@ contract FlightSuretyApp {
                 votes = dataContract.getAirlineVotes(airline);
                 if (votes >= minVotes){
                     dataContract.setApproved(airline, true);
-                    //emit AirlineRegistered(_address);
+                    emit RegisteredAirline(airline, votes, minVotes);
                 }
             }
         }
-        //return (success, 0);
     }
 
 
@@ -316,8 +319,7 @@ contract FlightSuretyApp {
         flightCount = flightCount.add(1);
         flights[flightKey] = Flight(true, status, timestamp, msg.sender, flight, flightCount);
         flightIds[flight] = flightCount;
-        //flightsKeyList.push(flightKey);
-        //emit
+        emit RegisteredFlight(status, flight, timestamp, msg.sender);
     }
 
    /**
@@ -333,8 +335,6 @@ contract FlightSuretyApp {
                                 )
                                 public
     requireIsOperational
-    //is airline
-    //is airline flight
     {
         bytes32 flightKey = getFlightKey(airline, flight, timestamp);
         flights[flightKey].statusCode = statusCode;
@@ -342,7 +342,6 @@ contract FlightSuretyApp {
          if (statusCode == STATUS_CODE_LATE_AIRLINE){
              creditInsurance(flightIds[flight]);
          }
-
         //emit FlightStatusProcessed(airline, flight, statusCode);
     }
 
@@ -368,13 +367,12 @@ contract FlightSuretyApp {
     }
 
     function creditInsurance(uint flightId) private requireIsOperational
-    //isSelfCaller
     {
         uint[] memory insurancesFlight = dataContract.getInsuracesFlight(flightId);
         for(uint i = 0; i < insurancesFlight.length; i++) {
             dataContract.creditInsurees(insurancesFlight[i]);
         }
-        //emit credited insurances
+        emit CreditedInsurances(flightId, insurancesFlight.length);
     }
 
     function buyInsurance(string flight, address insuree) external
@@ -393,6 +391,7 @@ contract FlightSuretyApp {
         dataContract.buy(flightIds[flight], insuree, amountPaid);
         address(dataContract).transfer(amountPaid);
         address(msg.sender).transfer(amountToReturn);
+        emit PurchasedInsurance(flight, insuree, msg.value);
     }
 
     function fundAirline()  external
@@ -403,7 +402,7 @@ contract FlightSuretyApp {
     {
         address(dataContract).transfer(msg.value);
         dataContract.setFunded(msg.sender, true);
-        //emit RegistrationFeePaid(msg.sender, registrationFee);
+        emit FundedAirline(msg.sender, msg.value);
     }
 
     function witdrawCredits() external
@@ -412,7 +411,7 @@ contract FlightSuretyApp {
                               insureeHasCredits(msg.sender)
     {
         dataContract.pay(msg.sender);
-        //Emit credits withdrawn(msg.sender)
+        emit CreditsWithdrawn(msg.sender);
     }
 
 // region ORACLE MANAGEMENT

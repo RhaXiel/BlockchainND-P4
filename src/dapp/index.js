@@ -162,35 +162,6 @@ import './flightsurety.css';
             DOM.elid('submit-oracles-timestamp').value = timestamp.toString();
         });        
 
-        /* ///Get flight status
-        DOM.elid("get-flight").addEventListener("click", async ()=>{
-            let request = {
-                flight: DOM.elid("get-flight-flight-id").value
-            };
-
-            let err, result, label;
-            try {
-                result = await contract.getFlight(request);
-                label = "Success";
-            } catch (e) {
-                err = e;
-                console.log(e);
-                label = "Failure";
-            } finally {
-                display('Get Flight',
-                    'Get flight from the system',
-                    [
-                        { label: "Airline Address", error: err, value: result.airlineAddress },
-                        { label: "Code", error: err, value: result.flight },
-                        { label: "Status", error: err, value: result.state },
-                        { label: "Departure Status", error: err, value: result.departureStatusCode },
-                        { label: "Departure", error: err, value: new Date(result.departureTimestamp.toNumber() * 1000) },
-                        { label: "Updated", error: err, value: new Date(result.updated.toNumber() * 1000) },
-                    ]
-                );
-            }
-        }); */
-
     });
     
 
@@ -221,19 +192,4 @@ function displayError(title, error, wrapper){
         div.innerHTML = '';
     }
     
-}
-
-function feedToast(title, message){
-    let toastDiv = DOM.elid("myToast");
-    let toastContent = DOM.div({className:'toast', role:'alert', dataAutohide:false, ariaLive:'assertive', ariaAomic: true});
-    let toastBody = DOM.div(message, {className:'body'});
-    let closeButton = DOM.button({type: 'button', className:'ml-2 mb-1 close', dataDismiss:"toast", ariaLabel: "Close"});
-    closeButton.appendChild(DOM.span("&times;", {ariaHidden: true}));
-    let toastTitle = DOM.strong(title, {className: 'mr-auto'});
-    let toastHeader = DOM.div({className: "toast-header"});
-    toastHeader.appendChild(toastTitle);
-    toastHeader.appendChild(closeButton);
-    toastContent.appendChild(toastHeader);
-    toastContent.appendChild(toastBody);
-    toastDiv.appendChild(toastContent);
 }

@@ -30,19 +30,6 @@ contract FlightSuretyData {
 
     mapping(address => Airline) private airlines;
 
-    /* enum FlightState{AvailableForinsurance, NotAvailableForInsurance}
-    struct Flight {
-        uint id;
-        string flight;
-        bytes32 key;
-        address airlineAddress;
-        FlightState state;
-        uint departureTimestamp;
-        uint8 departureStatusCode;
-        uint updatedTimestamp;
-    }
-    mapping(uint => Flight) public flights; */
-
     enum InsuranceState {Active, Expired, Credited}
     struct Insurance {
         uint id;
@@ -55,14 +42,6 @@ contract FlightSuretyData {
     mapping(address => uint) votes;
 
     mapping(address => address[]) approvals;
-
-    /* struct Votes{
-        uint voteNumber;
-        address airline;
-        address voter;
-    }
-
-    address[] voters */
 
     uint maxAutoAprovedAirlines = 4;
 
@@ -79,18 +58,15 @@ contract FlightSuretyData {
     event AddedFunds(address contractAddress, uint amount);
     event UpdatedCallerIsAuthorized(address contractAddress, bool isAuthorized);
 
-    event RegisteredAirline(address airlineAddres);
+    event RegisteredAirline(address airlineAddres, address registeringAirline);
+    event RegisteredVote(address airline, address registeringAirline);
     event UpdatedAirlineIsVoter(address airlineAddress, bool isVoter);
     event UpdatedAirlineVotes(address airlineAddress, bool vote);
 
-    event AddedFlightForInsurance(uint flightId);
-    event RemovedFlightForInsurance(uint flightId);
-    event UpdatedFlightDepartureStatus(uint flightId, uint8 statusCode);
+    event PurchaseInsurance(uint flightId, address insuree, uint amountPaid, uint insuranceCount);
 
-    event ActivatedInsurance(uint insuranceId);
-    event CreditedInsurance(uint insuranceId);
-    event ExpiredInsurance(uint insuranceId);
-    event WitdrawnInsurance(uint insuranceId);
+    event CreditedInsurance(uint insuranceId, uint credit);
+    event PayedInsurance(address insuree, uint credit);
 
     /**
     * @dev Constructor
@@ -110,6 +86,7 @@ contract FlightSuretyData {
         airlinesCount = airlinesCount.add(1);
         airlines[firstAirline] = Airline({id: airlinesCount, isVoter: true, approved: true, minVotes: 0});
         address(this).transfer(msg.value);
+        emit AddedFunds(address(this), msg.value);
     }
 
     /********************************************************************************************/
@@ -148,16 +125,6 @@ contract FlightSuretyData {
         _;
     }
 
-    //APP
-    /**
-    * @dev Modifier that requires the flight to be active
-    */
-    /* modifier requireActiveFlight(uint flightId)
-    {
-        require(uint(flights[flightId].state) == 0, "Flight is not available for insurance");
-        _;
-    } */
-
     /**
     * @dev Modifier that requires the Insurance to be valid
     */
@@ -187,11 +154,6 @@ contract FlightSuretyData {
         require(insuranceCredits[insuree] > 0, "Insuree does not have any credits");
         _;
     }
-
-    /* modifier disallowReinsurance(uint insuranceId)
-    {
-        insurances[msg.sender].
-    } */
 
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
@@ -232,6 +194,7 @@ contract FlightSuretyData {
                             requireContractOwner
     {
         authorizedCallers[_contract] = true;
+        emit UpdatedCallerIsAuthorized(_contract, true);
     }
 
     function deAuthorizeCaller(address _contract)
@@ -240,6 +203,7 @@ contract FlightSuretyData {
                                 requireContractOwner
     {
         delete authorizedCallers[_contract];
+        emit UpdatedCallerIsAuthorized(_contract, false);
     }
 
     function isAirlineIsExist(address airline)
@@ -329,14 +293,6 @@ contract FlightSuretyData {
         return insuranceCredits[insuree];
     }
 
-    /*
-    function getInsurances 
-    mapping(uint => Insurance) private insurances;
-    mapping(address => uint[]) private passengerInsurances;
-    mapping(uint => uint[]) private flightInsurances;
-
-    mapping(address => uint) private insuranceCredits; */
-
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -364,7 +320,7 @@ contract FlightSuretyData {
             });
         votes[airline] = votes[airline].add(1);
         approvals[airline].push(registeringAirline);
-        //Emit RegisteredAirline
+        emit RegisteredAirline(airline, registeringAirline);
     }
 
     function registerVote(
@@ -377,7 +333,7 @@ contract FlightSuretyData {
     {
         votes[airline] = votes[airline].add(1);
         approvals[airline].push(registeringAirline);
-        //Emit registeredvote
+        emit RegisteredVote(airline, registeringAirline);
     }
 
     function setFunded(address airline, bool isVoter) external
@@ -385,6 +341,7 @@ contract FlightSuretyData {
                                     requireAuthorizedCaller
     {
         airlines[airline].isVoter = isVoter;
+        emit UpdatedAirlineIsVoter(airline, isVoter);
     }
 
     function setApproved(address airline, bool approved) external
@@ -392,6 +349,7 @@ contract FlightSuretyData {
                                     requireAuthorizedCaller
     {
         airlines[airline].approved = approved;
+        emit UpdatedAirlineVotes(airline, approved);
     }
 
 
@@ -423,9 +381,7 @@ contract FlightSuretyData {
 
         flightInsurances[flightId].push(insuranceCount);
         passengerInsurances[insuree].push(insuranceCount);
-        //emit BoughtInsurance(insurancesById[insuranceCount].id);
-
-        //address(this).transfer(amountPaid);
+        emit PurchaseInsurance(flightId, insuree, amountPaid, insuranceCount);
     }
 
     /**
@@ -446,7 +402,7 @@ contract FlightSuretyData {
         uint credit = _insurance.insuredAmount.mul(15).div(10);
         insurances[insuranceId].state = InsuranceState.Credited;
         insuranceCredits[_insurance.insuree] = insuranceCredits[_insurance.insuree].add(credit);
-        //Emit Credited
+        emit CreditedInsurance(insuranceId, credit);
     }
 
 
@@ -468,7 +424,7 @@ contract FlightSuretyData {
         uint credit = insuranceCredits[insuree];
         insuranceCredits[insuree] = 0;
         insuree.transfer(credit);
-        //emit Payed
+        emit PayedInsurance(insuree, credit);
     }
 
    /**
@@ -482,12 +438,8 @@ contract FlightSuretyData {
                             public
                             payable
                             requireIsOperational
-                            //requireAirlineIsRegistered(airline)
     {
-        /* airlines[msg.sender].isVoter = true;
-        address(this).transfer(msg.value); */
-        //emit AddedFunds(airline, fundAmount);
-        emit AddedFunds(address(this), 1);
+        emit AddedFunds(address(this), msg.value);
     }
 
     function getFlightKey
@@ -511,8 +463,7 @@ contract FlightSuretyData {
                             external
                             payable
     {
-        //fund();
-        emit AddedFunds(address(this), 1);
+        emit AddedFunds(address(this), msg.value);
     }
 
 

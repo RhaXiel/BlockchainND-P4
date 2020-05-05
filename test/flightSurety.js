@@ -306,13 +306,4 @@ contract('Flight Surety Tests', async (accounts) => {
 
     assert.equal(isEqual, true , "Insuree could't withdraw credits");
   });
-
-  it('(oracle) Upon startup, 20+ oracles are registered and their assigned indexes are persisted in memory', async () => {
-    assert.equal(true,true, "true");
-  });
-
-  it('(oracle) Server will loop through all registered oracles, identify those oracles for which the OracleRequest event applies, and respond by calling into FlightSuretyApp contract with random status code of Unknown (0), On Time (10) or Late Airline (20), Late Weather (30), Late Technical (40), or Late Other (50)', async () => {
-    assert.equal(true,true, "true");
-  });
-
 });

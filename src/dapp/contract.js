@@ -85,9 +85,11 @@ export default class Contract {
 
     buyInsurance(flight, passenger, insuranceValue, callback){
         let self = this;
+        const _insuranceValue = self.web3.utils.toWei(insuranceValue, "ether");
+
         self.flightSuretyApp.methods
         .buyInsurance(flight, passenger)
-        .send({from: passenger, value: insuranceValue, gas: 1500000}, (error, result) =>
+        .send({from: passenger, value: _insuranceValue, gas: 1500000}, (error, result) =>
         {
             callback(error, result);
         })
@@ -97,9 +99,9 @@ export default class Contract {
         let self = this;
         self.flightSuretyApp.methods
         .getInsureeCredits(passenger)
-        .call({from: passenger, gas:1500000}, (error, result) =>
+        .call({ from: self.owner}, (error, result) =>
         {
-            callback(error,self.web3.utils.fromWei(result, "ether" ));
+            callback(error, self.web3.utils.fromWei(result, "ether" ));
         })
     }
 
